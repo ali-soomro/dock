@@ -27,8 +27,6 @@
 #include <QSettings>
 #include <QDebug>
 
-#include <KWindowSystem>
-
 static Utils *INSTANCE = nullptr;
 
 Utils *Utils::instance()

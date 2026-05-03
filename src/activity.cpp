@@ -20,8 +20,12 @@
 #include "activity.h"
 #include "docksettings.h"
 
+#include <QGuiApplication>
+#include <QtGui/qguiapplication_platform.h>
 #include <NETWM>
 #include <KWindowSystem>
+#include <KWindowInfo>
+#include <KX11Extras>
 
 static Activity *SELF = nullptr;
 
@@ -36,12 +40,16 @@ Activity *Activity::self()
 Activity::Activity(QObject *parent)
     : QObject(parent)
     , m_existsWindowMaximized(false)
+    , m_launchPad(false)
+    , m_pid(0)
 {
     onActiveWindowChanged();
 
-    connect(KWindowSystem::self(), &KWindowSystem::activeWindowChanged, this, &Activity::onActiveWindowChanged);
-    connect(KWindowSystem::self(), static_cast<void (KWindowSystem::*)(WId)>(&KWindowSystem::windowChanged),
-            this, &Activity::onActiveWindowChanged);
+    if (qGuiApp->platformName() == QLatin1String("xcb")) {
+        connect(KX11Extras::self(), &KX11Extras::activeWindowChanged, this, &Activity::onActiveWindowChanged);
+        connect(KX11Extras::self(), &KX11Extras::windowChanged,
+                this, [this](WId, NET::Properties, NET::Properties2) { onActiveWindowChanged(); });
+    }
 }
 
 bool Activity::existsWindowMaximized() const
@@ -53,10 +61,13 @@ bool Activity::launchPad() const
 {
     return m_launchPad;
 }
-#include <QDebug>
+
 void Activity::onActiveWindowChanged()
 {
-    KWindowInfo info(KWindowSystem::activeWindow(),
+    if (qGuiApp->platformName() != QLatin1String("xcb"))
+        return;
+
+    KWindowInfo info(KX11Extras::activeWindow(),
                      NET::WMState | NET::WMVisibleName,
                      NET::WM2WindowClass);
 
@@ -65,7 +76,7 @@ void Activity::onActiveWindowChanged()
     if (DockSettings::self()->visibility() == DockSettings::IntellHide) {
         bool existsWindowMaximized = false;
 
-        for (WId wid : KWindowSystem::windows()) {
+        for (WId wid : KX11Extras::windows()) {
             KWindowInfo i(wid, NET::WMState, NET::WM2WindowClass);
 
             if (i.isMinimized() || i.hasState(NET::SkipTaskbar))

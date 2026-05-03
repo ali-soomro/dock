@@ -33,6 +33,7 @@
 #include <NETWM>
 #include <KWindowSystem>
 #include <KWindowEffects>
+#include <KX11Extras>
 
 MainWindow::MainWindow(QQuickView *parent)
     : QQuickView(parent)
@@ -53,8 +54,8 @@ MainWindow::MainWindow(QQuickView *parent)
     setColor(Qt::transparent);
 
     setFlags(Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
-    // KWindowSystem::setOnDesktop(winId(), NET::OnAllDesktops);
-    KWindowSystem::setType(winId(), NET::Dock);
+    if (QGuiApplication::platformName() == QLatin1String("xcb"))
+        KX11Extras::setType(winId(), NET::Dock);
 
     engine()->rootContext()->setContextProperty("appModel", m_appModel);
     engine()->rootContext()->setContextProperty("process", new ProcessProvider);
@@ -286,7 +287,7 @@ void MainWindow::initSlideWindow()
     else if (m_settings->direction() == DockSettings::Bottom)
         location = KWindowEffects::BottomEdge;
 
-    KWindowEffects::slideWindow(winId(), location);
+    KWindowEffects::slideWindow(this, location);
 }
 
 void MainWindow::updateViewStruts()

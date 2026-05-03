@@ -44,10 +44,10 @@ signals:
 
 private:
     QString m_windowClass;
-    quint32 m_pid;
+    quint32 m_pid = 0;
 
-    bool m_existsWindowMaximized;
-    bool m_launchPad;
+    bool m_existsWindowMaximized = false;
+    bool m_launchPad = false;
 };
 
 #endif // ACTIVITY_H

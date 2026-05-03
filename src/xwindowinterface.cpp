@@ -22,13 +22,25 @@
 
 #include <QTimer>
 #include <QDebug>
-#include <QX11Info>
+#include <QGuiApplication>
+#include <QtGui/qguiapplication_platform.h>
 #include <QWindow>
 #include <QScreen>
+#include <xcb/xcb.h>
+
+static xcb_window_t xcbRootWindow()
+{
+    auto *x11App = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (!x11App)
+        return 0;
+    xcb_screen_t *screen = xcb_setup_roots_iterator(xcb_get_setup(x11App->connection())).data;
+    return screen ? screen->root : 0;
+}
 
 #include <KWindowEffects>
 #include <KWindowSystem>
 #include <KWindowInfo>
+#include <KX11Extras>
 
 // X11
 #include <NETWM>
@@ -46,35 +58,44 @@ XWindowInterface *XWindowInterface::instance()
 XWindowInterface::XWindowInterface(QObject *parent)
     : QObject(parent)
 {
-    connect(KWindowSystem::self(), &KWindowSystem::windowAdded, this, &XWindowInterface::onWindowadded);
-    connect(KWindowSystem::self(), &KWindowSystem::windowRemoved, this, &XWindowInterface::windowRemoved);
-    connect(KWindowSystem::self(), &KWindowSystem::activeWindowChanged, this, &XWindowInterface::activeChanged);
+    if (qGuiApp->platformName() == QLatin1String("xcb")) {
+        connect(KX11Extras::self(), &KX11Extras::windowAdded, this, &XWindowInterface::onWindowadded);
+        connect(KX11Extras::self(), &KX11Extras::windowRemoved, this, &XWindowInterface::windowRemoved);
+        connect(KX11Extras::self(), &KX11Extras::activeWindowChanged, this, &XWindowInterface::activeChanged);
+    }
 }
 
 void XWindowInterface::enableBlurBehind(QWindow *view, bool enable, const QRegion &region)
 {
-    KWindowEffects::enableBlurBehind(view->winId(), enable, region);
+    KWindowEffects::enableBlurBehind(view, enable, region);
 }
 
 WId XWindowInterface::activeWindow()
 {
-    return KWindowSystem::activeWindow();
+    if (qGuiApp->platformName() == QLatin1String("xcb"))
+        return KX11Extras::activeWindow();
+    return 0;
 }
 
 void XWindowInterface::minimizeWindow(WId win)
 {
-    KWindowSystem::minimizeWindow(win);
+    if (qGuiApp->platformName() == QLatin1String("xcb"))
+        KX11Extras::minimizeWindow(win);
 }
 
 void XWindowInterface::closeWindow(WId id)
 {
-    // FIXME: Why there is no such thing in KWindowSystem??
-    NETRootInfo(QX11Info::connection(), NET::CloseWindow).closeWindowRequest(id);
+#if defined(Q_OS_LINUX)
+    auto *x11App = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (x11App)
+        NETRootInfo(x11App->connection(), NET::CloseWindow).closeWindowRequest(id);
+#endif
 }
 
 void XWindowInterface::forceActiveWindow(WId win)
 {
-    KWindowSystem::forceActiveWindow(win);
+    if (qGuiApp->platformName() == QLatin1String("xcb"))
+        KX11Extras::forceActiveWindow(win);
 }
 
 QMap<QString, QVariant> XWindowInterface::requestInfo(quint64 wid)
@@ -94,7 +115,7 @@ QMap<QString, QVariant> XWindowInterface::requestInfo(quint64 wid)
     const QString winClass = QString(winfo.windowClassClass());
 
     result.insert("iconName", winClass.toLower());
-    result.insert("active", wid == KWindowSystem::activeWindow());
+    result.insert("active", wid == KX11Extras::activeWindow());
     result.insert("visibleName", winfo.visibleName());
     result.insert("id", winClass);
 
@@ -130,7 +151,7 @@ bool XWindowInterface::isAcceptableWindow(quint64 wid)
 
     // WM_TRANSIENT_FOR hint not set - normal window
     WId transFor = info.transientFor();
-    if (transFor == 0 || transFor == wid || transFor == (WId) QX11Info::appRootWindow())
+    if (transFor == 0 || transFor == wid || transFor == (WId) xcbRootWindow())
         return true;
 
     info = KWindowInfo(transFor, NET::WMWindowType);
@@ -145,11 +166,13 @@ bool XWindowInterface::isAcceptableWindow(quint64 wid)
 
 void XWindowInterface::setViewStruts(QWindow *view, DockSettings::Direction direction, const QRect &rect, bool compositing)
 {
+    if (qGuiApp->platformName() != QLatin1String("xcb"))
+        return;
+
     NETExtendedStrut strut;
 
     const auto screen = view->screen();
 
-    // const QRect currentScreen {screen->geometry()};
     const QRect wholeScreen { {0, 0}, screen->virtualSize() };
     bool isRound = DockSettings::self()->style() == DockSettings::Round;
     const int edgeMargins = compositing && isRound? DockSettings::self()->edgeMargins() : 0;
@@ -169,7 +192,6 @@ void XWindowInterface::setViewStruts(QWindow *view, DockSettings::Direction dire
         break;
     }
     case DockSettings::Right: {
-        // const int rightOffset = {wholeScreen.right() - currentScreen.right()};
         strut.right_width = rect.width() + edgeMargins;
         strut.right_start = rect.y();
         strut.right_end = rect.y() + rect.height() - 1;
@@ -179,22 +201,26 @@ void XWindowInterface::setViewStruts(QWindow *view, DockSettings::Direction dire
         break;
     }
 
-    KWindowSystem::setExtendedStrut(view->winId(),
-                                    strut.left_width,   strut.left_start,   strut.left_end,
-                                    strut.right_width,  strut.right_start,  strut.right_end,
-                                    strut.top_width,    strut.top_start,    strut.top_end,
-                                    strut.bottom_width, strut.bottom_start, strut.bottom_end
-                                    );
+    KX11Extras::setExtendedStrut(view->winId(),
+                                 strut.left_width,   strut.left_start,   strut.left_end,
+                                 strut.right_width,  strut.right_start,  strut.right_end,
+                                 strut.top_width,    strut.top_start,    strut.top_end,
+                                 strut.bottom_width, strut.bottom_start, strut.bottom_end
+                                 );
 }
 
 void XWindowInterface::clearViewStruts(QWindow *view)
 {
-    KWindowSystem::setExtendedStrut(view->winId(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    if (qGuiApp->platformName() != QLatin1String("xcb"))
+        return;
+    KX11Extras::setExtendedStrut(view->winId(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 void XWindowInterface::startInitWindows()
 {
-    for (auto wid : KWindowSystem::self()->windows()) {
+    if (qGuiApp->platformName() != QLatin1String("xcb"))
+        return;
+    for (auto wid : KX11Extras::windows()) {
         onWindowadded(wid);
     }
 }
@@ -202,19 +228,28 @@ void XWindowInterface::startInitWindows()
 QString XWindowInterface::desktopFilePath(quint64 wid)
 {
     const KWindowInfo info(wid, NET::Properties(), NET::WM2WindowClass | NET::WM2DesktopFileName);
-    return Utils::instance()->desktopPathFromMetadata(info.windowClassClass(),
-                                                      NETWinInfo(QX11Info::connection(), wid,
-                                                                 QX11Info::appRootWindow(),
-                                                                 NET::WMPid,
-                                                                 NET::Properties2()).pid(),
-                                                      info.windowClassName());
+    quint32 pid = 0;
+#if defined(Q_OS_LINUX)
+    auto *x11App = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (x11App)
+        pid = NETWinInfo(x11App->connection(),
+                         (xcb_window_t)wid,
+                         (xcb_window_t)xcbRootWindow(),
+                         NET::WMPid,
+                         NET::Properties2()).pid();
+#endif
+    return Utils::instance()->desktopPathFromMetadata(info.windowClassClass(), pid, info.windowClassName());
 }
 
 void XWindowInterface::setIconGeometry(quint64 wid, const QRect &rect)
 {
-    NETWinInfo info(QX11Info::connection(),
-                    wid,
-                    (WId) QX11Info::appRootWindow(),
+#if defined(Q_OS_LINUX)
+    auto *x11App = qGuiApp->nativeInterface<QNativeInterface::QX11Application>();
+    if (!x11App)
+        return;
+    NETWinInfo info(x11App->connection(),
+                    (xcb_window_t)wid,
+                    (xcb_window_t)xcbRootWindow(),
                     NET::WMIconGeometry,
                     QFlags<NET::Property2>(1));
     NETRect nrect;
@@ -223,6 +258,7 @@ void XWindowInterface::setIconGeometry(quint64 wid, const QRect &rect)
     nrect.size.height = rect.height();
     nrect.size.width = rect.width();
     info.setIconGeometry(nrect);
+#endif
 }
 
 void XWindowInterface::onWindowadded(quint64 wid)
