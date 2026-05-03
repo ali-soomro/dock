@@ -100,6 +100,9 @@ void XWindowInterface::forceActiveWindow(WId win)
 
 QMap<QString, QVariant> XWindowInterface::requestInfo(quint64 wid)
 {
+    if (qGuiApp->platformName() != QLatin1String("xcb"))
+        return QMap<QString, QVariant>();
+
     const KWindowInfo winfo { wid, NET::WMFrameExtents
                 | NET::WMWindowType
                 | NET::WMGeometry
@@ -124,11 +127,16 @@ QMap<QString, QVariant> XWindowInterface::requestInfo(quint64 wid)
 
 QString XWindowInterface::requestWindowClass(quint64 wid)
 {
+    if (qGuiApp->platformName() != QLatin1String("xcb"))
+        return QString();
     return KWindowInfo(wid, NET::Supported, NET::WM2WindowClass).windowClassClass();
 }
 
 bool XWindowInterface::isAcceptableWindow(quint64 wid)
 {
+    if (qGuiApp->platformName() != QLatin1String("xcb"))
+        return false;
+
     QFlags<NET::WindowTypeMask> ignoreList;
     ignoreList |= NET::DesktopMask;
     ignoreList |= NET::DockMask;

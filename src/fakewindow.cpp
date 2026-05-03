@@ -86,7 +86,9 @@ bool FakeWindow::event(QEvent *e)
             m_delayedMouseTimer.start();
         }
     } else if (e->type() == QEvent::Show) {
-        KX11Extras::setState(winId(), NET::SkipTaskbar | NET::SkipPager | NET::SkipSwitcher);
+        if (qGuiApp->platformName() == QLatin1String("xcb")) {
+            KX11Extras::setState(winId(), NET::SkipTaskbar | NET::SkipPager | NET::SkipSwitcher);
+        }
     }
 
     return QQuickView::event(e);

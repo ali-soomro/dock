@@ -4,27 +4,27 @@
 <context>
     <name>AppItem</name>
     <message>
-        <location filename="../qml/AppItem.qml" line="73"/>
+        <location filename="../qml/AppItem.qml" line="95"/>
         <source>Open</source>
         <translation>Отваряне</translation>
     </message>
     <message>
-        <location filename="../qml/AppItem.qml" line="85"/>
+        <location filename="../qml/AppItem.qml" line="107"/>
         <source>Unpin</source>
         <translation>Отделяне</translation>
     </message>
     <message>
-        <location filename="../qml/AppItem.qml" line="85"/>
+        <location filename="../qml/AppItem.qml" line="107"/>
         <source>Pin</source>
         <translation>Закачане</translation>
     </message>
     <message>
-        <location filename="../qml/AppItem.qml" line="94"/>
+        <location filename="../qml/AppItem.qml" line="116"/>
         <source>Close window</source>
         <translation>Затваряне на прозореца</translation>
     </message>
     <message>
-        <location filename="../qml/AppItem.qml" line="95"/>
+        <location filename="../qml/AppItem.qml" line="117"/>
         <source>Close %1 windows</source>
         <translation>Затваряне на %1 прозореца</translation>
     </message>
@@ -32,7 +32,7 @@
 <context>
     <name>ApplicationModel</name>
     <message>
-        <location filename="../src/applicationmodel.cpp" line="285"/>
+        <location filename="../src/applicationmodel.cpp" line="360"/>
         <source>Launcher</source>
         <translation>Лаунчер</translation>
     </message>
@@ -40,17 +40,17 @@
 <context>
     <name>main</name>
     <message>
-        <location filename="../qml/main.qml" line="114"/>
+        <location filename="../qml/main.qml" line="133"/>
         <source>Trash</source>
         <translation>Кошче</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="124"/>
+        <location filename="../qml/main.qml" line="168"/>
         <source>Open</source>
         <translation>Отваряне</translation>
     </message>
     <message>
-        <location filename="../qml/main.qml" line="129"/>
+        <location filename="../qml/main.qml" line="173"/>
         <source>Empty Trash</source>
         <translation>Изпразване на кошчето</translation>
     </message>
